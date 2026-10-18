@@ -2,6 +2,8 @@
 // 계산식이나 규칙을 바꿀 땐 새 버전을 추가하고 옛 버전은 그대로 둔다.
 // (과거 결과 링크가 다시 계산될 때 바뀌면 안 되기 때문)
 
+import { MESSAGES } from "./messages";
+
 export const FORTUNE_VERSION = 2;
 export const MAX_SLOTS = 10;
 
@@ -56,31 +58,6 @@ export function newSeed(): string {
   return Math.random().toString(36).slice(2, 10);
 }
 
-// 등급별 메시지 풀. 대길은 전부 "베푸는 날" 톤. 등급당 30개 이상이 목표(지금은 씨앗).
-const MESSAGES: Record<Grade, string[]> = {
-  대길: [
-    "{name}, 오늘 귀인이 당신 손에서 커피를 받습니다.",
-    "운이 넘쳐서 흘러요. {day}의 커피는 당신이 베푸는 날.",
-    "오늘 쓴 돈은 세 배로 돌아옵니다. 일단 커피부터.",
-    "{name} 덕분에 팀 전체의 오후 운이 올라갑니다.",
-    "오늘은 받는 날이 아니라 주는 날. 그래서 더 좋은 날.",
-  ],
-  길: [
-    "작은 행운이 하나 있어요. 커피는 남이 사줄 확률 높음.",
-    "{day} 오후, 일이 생각보다 잘 풀립니다.",
-    "오늘 들은 칭찬은 진심이에요. {name}, 믿어도 됩니다.",
-    "엘리베이터가 바로 옵니다. 그 정도의 운.",
-    "운은 좋았는데 더 좋은 사람이 있었네요. 얻어 마시세요.",
-  ],
-  평: [
-    "무난한 하루. 커피는 얻어 마시고 조용히 지나가세요.",
-    "{name}, 오늘은 평균. 평균도 나쁘지 않아요.",
-    "특별한 일은 없지만 특별히 나쁜 일도 없습니다.",
-    "{day}의 운세: 점심 메뉴 고르는 데 10분 이상 걸림.",
-    "오늘은 지켜보는 날. 내일을 위해 힘을 아끼세요.",
-  ],
-};
-
 const DAY_NAMES = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
 
 function dayOfWeek(date: string): number {
@@ -129,7 +106,10 @@ export function playGame(input: GameInput): GameResult {
   const fortunes: Fortune[] = base.map((b) => {
     const grade: Grade = b.slot === winner ? "대길" : b.score >= 50 ? "길" : "평";
     const name = displayName(b);
-    const message = pick(MESSAGES[grade], b.key + "|msg").replaceAll("{name}", name).replaceAll("{day}", day);
+    const pool = MESSAGES[grade];
+    const message = `${pick(pool.front, b.key + "|front")} ${pick(pool.back, b.key + "|back")}`
+      .replaceAll("{name}", name)
+      .replaceAll("{day}", day);
     return { slot: b.slot, label: b.label, score: b.score, tie: b.tie, grade, message };
   });
 
