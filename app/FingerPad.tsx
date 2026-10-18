@@ -126,11 +126,16 @@ export default function FingerPad() {
       showToast(`손가락은 ${MAX_FINGERS}개까지. 더 많으면 카드뽑기로!`);
       return;
     }
-    const used = new Set(fingers.map((f) => f.slot));
-    let slot = 1;
-    while (used.has(slot)) slot++;
-    posRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    setFingers([...fingers, { id: e.pointerId, x: e.clientX, y: e.clientY, slot }]);
+    const { pointerId, clientX, clientY } = e;
+    posRef.current.set(pointerId, { x: clientX, y: clientY });
+    // 같은 프레임에 두 손가락이 닿아도 번호가 겹치지 않게 함수형 업데이트
+    setFingers((fs) => {
+      if (fs.length >= MAX_FINGERS || fs.some((f) => f.id === pointerId)) return fs;
+      const used = new Set(fs.map((f) => f.slot));
+      let slot = 1;
+      while (used.has(slot)) slot++;
+      return [...fs, { id: pointerId, x: clientX, y: clientY, slot }];
+    });
   }
   function move(e: React.PointerEvent) {
     if (phase !== "idle") return;
