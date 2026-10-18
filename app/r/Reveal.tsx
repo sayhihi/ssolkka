@@ -111,7 +111,7 @@ export default function Reveal() {
     return (
       <section className="flex flex-1 flex-col">
         <div className="flex items-end justify-between">
-          <h1 className="title whitespace-pre-line text-[38px]">{"카드 한 장\n골라"}</h1>
+          <h1 className="title whitespace-pre-line text-[38px]">{"카드\n뽑기"}</h1>
           {top && <LeaderBadge f={top} />}
         </div>
         <div className="mt-2.5 flex items-center justify-between text-xs text-[#555]">

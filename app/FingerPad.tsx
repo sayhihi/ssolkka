@@ -12,7 +12,7 @@ type Phase = "idle" | "reveal";
 
 const HOLD_MS = 2000; // 손가락 수가 이만큼 안 변하면 카운트다운 시작
 const COUNT_FROM = 3;
-const TOUCH_LIMIT = 5; // 아이폰 동시 터치 한계
+const TOUCH_LIMIT = 6; // 손가락 모드 최대 인원 (아이폰 사파리는 동시 터치 5개까지만 잡힐 수 있음)
 const SLOT_MS = 110; // 캐릭터 슬롯머신 속도
 const REVEAL_GAP_MS = 450; // 점수 낮은 순으로 하나씩
 
@@ -164,22 +164,23 @@ export default function FingerPad() {
         </div>
         {phase === "idle" && (
           <div className="flex gap-2 pt-1" onPointerDown={stop} onPointerUp={stop}>
-            <button type="button" onClick={() => router.push(`/r?${encodeGame(makeState("d", []))}`)} className="ink3 press h-12 w-12 rounded-xl bg-paper text-xs leading-[1.05]" aria-label="한 명씩 뽑기 모드">
-              한명
-              <br />씩
+            <button type="button" onClick={() => router.push(`/r?${encodeGame(makeState("d", []))}`)} className="ink3 press h-12 w-12 rounded-xl bg-paper text-xs leading-[1.05]" aria-label="카드 뽑기 모드">
+              카드
+              <br />뽑기
             </button>
-            <button
-              type="button"
-              onClick={() => setEvents(!events)}
-              disabled={!event}
-              aria-pressed={events}
-              className={`ink3 press h-12 w-12 rounded-xl text-xs leading-[1.05] disabled:opacity-40 ${events ? "bg-gold text-ink" : "bg-paper text-[#888]"}`}
-              aria-label={event ? `${event.label} ${events ? "켜짐" : "꺼짐"}` : "오늘은 요일 이벤트 없음"}
-            >
-              {event ? event.short : "이벤트"}
-              <br />
-              {event ? (events ? "ON" : "OFF") : "없음"}
-            </button>
+            {event && (
+              <button
+                type="button"
+                onClick={() => setEvents(!events)}
+                aria-pressed={events}
+                className={`ink3 press h-12 w-12 rounded-xl text-xs leading-[1.05] ${events ? "bg-gold text-ink" : "bg-paper text-[#888]"}`}
+                aria-label={`${event.label} ${events ? "켜짐" : "꺼짐"}`}
+              >
+                {event.short}
+                <br />
+                {events ? "ON" : "OFF"}
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -235,7 +236,7 @@ export default function FingerPad() {
                 const f = fingers[i];
                 return f ? <span key={i} className="ink2 h-3.5 w-3.5 rounded-full" style={{ background: colorOf(f.slot).hex }} /> : <span key={i} className="h-3.5 w-3.5 rounded-full border-2 border-dashed border-[#999] bg-paper" />;
               })}
-              <span className="ml-1 text-xs text-[#555]">{n >= TOUCH_LIMIT ? "6명+는 한명씩" : "최대 5"}</span>
+              <span className="ml-1 text-xs text-[#555]">{n >= TOUCH_LIMIT ? "7명+는 카드뽑기" : "최대 6"}</span>
             </div>
           </div>
         ) : (
