@@ -65,10 +65,10 @@ function dayOfWeek(date: string): number {
 }
 
 // 요일 이벤트 규칙(v2). 월요일 전원 -5, 금요일 전원 +8.
-function dayEventOf(date: string): { label: string; delta: number } | null {
+export function dayEventOf(date: string): { label: string; short: string; delta: number } | null {
   const d = dayOfWeek(date);
-  if (d === 1) return { label: "월요병 보정: 전원 -5", delta: -5 };
-  if (d === 5) return { label: "불금 보정: 전원 +8", delta: 8 };
+  if (d === 1) return { label: "월요병 보정: 전원 -5", short: "월", delta: -5 };
+  if (d === 5) return { label: "불금 보정: 전원 +8", short: "금", delta: 8 };
   return null;
 }
 

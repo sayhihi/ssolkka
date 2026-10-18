@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { Black_Han_Sans, Bungee } from "next/font/google";
 import "./globals.css";
+
+const blackHan = Black_Han_Sans({ weight: "400", subsets: ["latin"], variable: "--font-black-han", display: "swap" });
+const bungee = Bungee({ weight: "400", subsets: ["latin"], variable: "--font-bungee", display: "swap" });
 
 export const metadata: Metadata = {
   title: "쏠까 - 오늘 커피 누가 쏠까",
@@ -15,9 +19,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko" className="h-full antialiased">
+    <html lang="ko" className={`${blackHan.variable} ${bungee.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <main className="mx-auto flex w-full max-w-[430px] flex-1 flex-col px-4 pb-8 pt-6">{children}</main>
+        <main className="mx-auto flex w-full max-w-[430px] flex-1 flex-col px-5 pb-7 pt-12">{children}</main>
       </body>
     </html>
   );
