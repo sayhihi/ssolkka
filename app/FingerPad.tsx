@@ -34,6 +34,7 @@ export default function FingerPad() {
   const [frozen, setFrozen] = useState<Finger[]>([]); // 카운트 끝난 순간의 손가락 자리
   const [game, setGame] = useState<{ state: GameState; result: GameResult } | null>(null);
   const [revealed, setRevealed] = useState<number[]>([]); // 공개된 slot, 낮은 순
+  const [selected, setSelected] = useState<number | null>(null); // 하단 카드에 보여줄 slot
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const posRef = useRef(new Map<number, { x: number; y: number }>());
@@ -110,7 +111,10 @@ export default function FingerPad() {
     const id = setInterval(() => {
       i += 1;
       setRevealed(order.slice(0, i));
-      if (i >= order.length) clearInterval(id);
+      if (i >= order.length) {
+        clearInterval(id);
+        setSelected(game.result.winner);
+      }
     }, REVEAL_GAP_MS);
     return () => clearInterval(id);
   }, [phase, game]);
@@ -150,6 +154,7 @@ export default function FingerPad() {
     setFrozen([]);
     setGame(null);
     setRevealed([]);
+    setSelected(null);
     posRef.current.clear();
   }
 
@@ -222,40 +227,46 @@ export default function FingerPad() {
         </div>
       )}
 
-      {/* 손가락 원 */}
+      {/* 손가락 원. 공개 후엔 원 바깥에 아무것도 붙이지 않는다(어디에 올려도 안 겹치게) */}
       {circles.map((f) => {
         const c = colorOf(f.slot);
         const fortune = game?.result.fortunes[f.slot - 1];
         const isRevealed = revealed.includes(f.slot);
         const isWinner = done && winner === f.slot;
+        const isSelected = done && selected === f.slot;
         // 슬롯머신: 손가락마다 다른 위상으로 8종 순환. 공개되면 자기 색 동물로.
         const charSlot = phase === "reveal" ? f.slot : ((tick + f.slot * 3) % COLORS.length) + 1;
+        const grade = fortune ? (isWinner ? "대길" : fortune.score >= 50 ? "길" : "평") : null;
+        const stickerCls = grade === "대길" ? "sticker-top" : grade === "길" ? "sticker-mid" : "sticker-low";
         return (
           <div
             key={f.id}
-            className={`pointer-events-none absolute ${phase === "idle" ? "breathe" : ""}`}
+            role={done ? "button" : undefined}
+            onClick={done ? () => setSelected(f.slot) : undefined}
+            className={`absolute ${phase === "idle" ? "breathe pointer-events-none" : done ? "cursor-pointer" : "pointer-events-none"}`}
             style={{ left: f.x, top: f.y, transform: phase === "idle" ? undefined : `translate(-50%, -50%) scale(${isWinner ? 1.25 : 1})`, transition: "transform 0.4s cubic-bezier(0.2,0.9,0.3,1.3)", zIndex: isWinner ? 2 : 1 }}
           >
-            {isWinner && <span className="ink3 sh3 absolute -top-5 left-1/2 -translate-x-1/2 rotate-[-6deg] rounded-[10px] bg-paper px-3 py-0.5 text-base">대길</span>}
             <div
               className={`ink4 relative flex h-[120px] w-[120px] flex-col items-center justify-center rounded-full ${isWinner ? "sh6g" : "sh6"}`}
-              style={{ background: isWinner ? "#FFC400" : c.hex, color: c.ink || isWinner ? "#111" : "#fff" }}
+              style={{ background: isWinner ? "#FFC400" : c.hex, color: c.ink || isWinner ? "#111" : "#fff", outline: isSelected && !isWinner ? "4px solid #FFC400" : undefined, outlineOffset: 4 }}
             >
-              <Image src={characterSrc(charSlot)} alt={colorOf(charSlot).animal} width={64} height={78} className="ink3 rounded-lg bg-paper object-cover" style={{ width: 64, height: 78 }} />
+              {isRevealed && fortune ? (
+                <>
+                  <Image src={characterSrc(f.slot)} alt={c.animal} width={28} height={34} className="ink2 rounded-md bg-paper object-cover" style={{ width: 28, height: 34 }} />
+                  <span className="num text-[44px] leading-none">{fortune.score}</span>
+                  <span className={`sticker sticker-sm absolute -top-3 left-1/2 -translate-x-1/2 ${stickerCls}`}>{grade}</span>
+                </>
+              ) : (
+                <Image src={characterSrc(charSlot)} alt={colorOf(charSlot).animal} width={64} height={78} className="ink3 rounded-lg bg-paper object-cover" style={{ width: 64, height: 78 }} />
+              )}
               <span className="num ink2 absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-ink text-base text-gold">{f.slot}</span>
             </div>
-            {isRevealed && fortune && (
-              <div className="pop absolute left-1/2 top-[124px] flex -translate-x-1/2 flex-col items-center gap-1">
-                <span className={`num ink3 rounded-[10px] px-3 py-0.5 text-[26px] leading-tight ${isWinner ? "sh3 bg-gold" : "sh3 bg-paper"}`}>{fortune.score}</span>
-                {!isWinner && <span className={`sticker sticker-sm ${fortune.score >= 50 ? "sticker-mid" : "sticker-low"}`}>{fortune.score >= 50 ? "길" : "평"}</span>}
-              </div>
-            )}
           </div>
         );
       })}
 
-      {/* 하단: 대기 중 상태 바 / 공개 후 버튼 */}
-      <div className="absolute inset-x-0 bottom-0 mx-auto max-w-[430px] px-5 pb-7" onPointerDown={stop} onPointerUp={stop}>
+      {/* 하단: 대기 중엔 상태 바(이 영역은 손가락을 받지 않음), 공개 후엔 탭한 사람의 운세 카드 */}
+      <div className="absolute inset-x-0 bottom-0 mx-auto flex min-h-[200px] max-w-[430px] flex-col justify-end px-5 pb-7" onPointerDown={stop} onPointerUp={stop}>
         {phase === "idle" ? (
           <div className="ink3 sh4 pointer-events-none flex h-14 items-center justify-between rounded-[14px] bg-paper px-4">
             <span className="text-[15px]">{n === 0 ? "손가락 올리면 색이 생겨요" : `${n}명 올라옴`}</span>
@@ -269,15 +280,34 @@ export default function FingerPad() {
           </div>
         ) : (
           done &&
-          game && (
-            <div className="flex flex-col gap-2.5">
-              <p className="ink3 rounded-xl bg-paper px-3 py-2 text-center text-sm leading-snug">{game.result.fortunes[winner! - 1].message}</p>
-              <div className="flex gap-2.5">
-                <button type="button" onClick={reset} className="btn-small press w-24">다시</button>
-                <button type="button" onClick={() => router.push(`/r?${encodeGame(game.state)}`)} className="btn-big flex-1 rounded-2xl">결과 자세히</button>
+          game &&
+          selected !== null &&
+          (() => {
+            const f = game.result.fortunes[selected - 1];
+            const c = colorOf(f.slot);
+            const isW = f.slot === winner;
+            return (
+              <div className="flex flex-col gap-2.5">
+                <div className={`ink4 flex items-center gap-3 rounded-[18px] px-3.5 py-3 ${isW ? "sh6g bg-gold" : "sh6 bg-paper"}`}>
+                  <Image src={characterSrc(f.slot)} alt={c.animal} width={44} height={54} className="ink3 rounded-lg bg-paper object-cover" style={{ width: 44, height: 54 }} />
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className="num text-xl leading-none">{f.slot}</span>
+                      <span className="text-sm">{c.name} {c.animal}</span>
+                      <span className={`sticker sticker-sm ${f.grade === "대길" ? "sticker-top" : f.grade === "길" ? "sticker-mid" : "sticker-low"}`}>{f.grade}</span>
+                      <span className="num ml-auto text-[30px] leading-none">{f.score}</span>
+                    </div>
+                    <p className="text-[13px] leading-snug">{f.message}</p>
+                  </div>
+                </div>
+                <p className="text-center text-xs text-[#555]">원을 탭하면 그 사람 운세가 보여요</p>
+                <div className="flex gap-2.5">
+                  <button type="button" onClick={reset} className="btn-small press w-24">다시</button>
+                  <button type="button" onClick={() => router.push(`/r?${encodeGame(game.state)}`)} className="btn-big flex-1 rounded-2xl">결과 자세히</button>
+                </div>
               </div>
-            </div>
-          )
+            );
+          })()
         )}
       </div>
     </div>

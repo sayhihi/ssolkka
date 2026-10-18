@@ -64,9 +64,8 @@ export default function Reveal() {
   const state = useMemo(() => decodeGame(params), [params]);
   const result = useMemo(() => (state ? playGame(state) : null), [state]);
   const [copied, setCopied] = useState(false);
+  const [open, setOpen] = useState<number | null>(null); // 결과 목록에서 펼친 slot
 
-  // 손가락 모드 링크는 바로 결과. 뽑기 모드는 "끝"을 눌러야 결과.
-  const showResult = !!state && !!result && result.winner !== null && (state.mode === "f" || state.finished);
 
   if (!state || !result) {
     return (
@@ -206,20 +205,25 @@ export default function Reveal() {
       <ul className="mr-1.5 mt-5 flex flex-col gap-2">
         {others.map((f, i) => {
           const c = colorOf(f.slot);
+          const isOpen = open === f.slot;
           return (
-            <li key={f.slot} className="ink3 sh3 flex h-[50px] items-center gap-2.5 overflow-hidden rounded-xl bg-paper pr-3">
-              <span className="num flex h-full w-11 items-center justify-center border-r-[3px] border-ink text-lg" style={{ background: c.hex, color: c.ink ? "#111" : "#fff" }}>{f.slot}</span>
-              <Character slot={f.slot} w={28} h={36} className="ink2 rounded-md" />
-              <span className="flex-1 text-sm">{c.name}{f.label ? ` ${f.label}` : ""}</span>
-              <Sticker grade={f.grade} small />
-              <span className="num w-11 text-right text-[22px]">
-                {f.score}
-                {tied && i === 0 && <span className="text-[11px] text-[#555]">.{f.tie}</span>}
-              </span>
+            <li key={f.slot} className={`ink3 overflow-hidden rounded-xl bg-paper ${isOpen ? "sh3 outline outline-[3px] outline-gold" : "sh3"}`}>
+              <button type="button" onClick={() => setOpen(isOpen ? null : f.slot)} aria-expanded={isOpen} className="flex h-[50px] w-full items-center gap-2.5 pr-3 text-left">
+                <span className="num flex h-full w-11 items-center justify-center border-r-[3px] border-ink text-lg" style={{ background: c.hex, color: c.ink ? "#111" : "#fff" }}>{f.slot}</span>
+                <Character slot={f.slot} w={28} h={36} className="ink2 rounded-md" />
+                <span className="flex-1 text-sm">{c.name}{f.label ? ` ${f.label}` : ""}</span>
+                <Sticker grade={f.grade} small />
+                <span className="num w-11 text-right text-[22px]">
+                  {f.score}
+                  {tied && i === 0 && <span className="text-[11px] text-[#555]">.{f.tie}</span>}
+                </span>
+              </button>
+              {isOpen && <p className="border-t-[3px] border-ink px-3 py-2.5 text-[13px] leading-snug">{f.message}</p>}
             </li>
           );
         })}
       </ul>
+      {others.length > 0 && <p className="mt-2 text-center text-xs text-[#555]">탭하면 그 사람 운세가 보여요</p>}
 
       <div className="mr-1.5 mt-auto flex flex-col gap-2.5 pt-6">
         <div className="flex gap-2.5">
