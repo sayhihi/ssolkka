@@ -1,37 +1,35 @@
-// 운세 계산 모듈. 저장소 없이 "날짜 + 이름"만으로 같은 결과를 재현한다.
+// 운세 계산 모듈. 저장소 없이 "시드 + 번호"만으로 같은 결과를 재현한다.
 // 계산식이나 규칙을 바꿀 땐 새 버전을 추가하고 옛 버전은 그대로 둔다.
 // (과거 결과 링크가 다시 계산될 때 바뀌면 안 되기 때문)
 
-export const FORTUNE_VERSION = 1;
+export const FORTUNE_VERSION = 2;
+export const MAX_SLOTS = 10;
 
-export type Grade = "대길" | "길" | "평" | "흉";
-export type Rule = "high" | "low"; // high: 점수 높은 사람이 쏜다(기본), low: 낮은 사람이 쏜다
-
-export type Participant = { name: string; character: number };
+export type Grade = "대길" | "길" | "평"; // 대길은 그 판의 당첨자 한 명에게만 붙는 라벨
 
 export type Fortune = {
-  name: string;
-  character: number;
-  score: number;
+  slot: number; // 1부터
+  label: string | null; // 선택 이름
+  score: number; // 0~100 정수(표시용)
+  tie: number; // 0~9 숨은 소수점. 동점일 때만 공개
   grade: Grade;
   message: string;
-  menu: string;
 };
 
 export type GameInput = {
   version: number;
-  date: string; // YYYY-MM-DD (KST 기준)
-  participants: Participant[];
-  rule: Rule;
+  seed: string;
+  count: number; // 카드 수(뽑기 모드는 뽑은 장수)
+  date: string; // YYYY-MM-DD (KST). 요일 이벤트와 표시용
   events: boolean;
-  tieWinner?: number; // 동점일 때 가위바위보로 정한 참가자 index
+  labels: Record<number, string>; // slot -> 이름(선택)
 };
 
 export type GameResult = {
-  fortunes: Fortune[]; // 입력 순서 그대로
-  revealOrder: number[]; // 공개 순서(당첨 후보가 마지막)
-  candidates: number[]; // 당첨 후보(동점이면 2명 이상)
-  winner: number | null; // 동점 미해결이면 null
+  fortunes: Fortune[]; // 번호순
+  ranking: number[]; // 당첨 순위(슬롯 번호). [0]이 당첨자
+  winner: number | null; // count < 2 면 null
+  tied: boolean; // 1등 점수가 동점이라 소수점으로 갈렸는지
   dayEvent: string | null;
 };
 
@@ -50,16 +48,12 @@ function hash53(str: string, seed = 0): number {
 }
 
 export function todayKST(): string {
-  const now = new Date();
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
   return kst.toISOString().slice(0, 10);
 }
 
-export function gradeOf(score: number): Grade {
-  if (score >= 85) return "대길";
-  if (score >= 60) return "길";
-  if (score >= 30) return "평";
-  return "흉";
+export function newSeed(): string {
+  return Math.random().toString(36).slice(2, 10);
 }
 
 // 등급별 메시지 풀. 대길은 전부 "베푸는 날" 톤. 등급당 30개 이상이 목표(지금은 씨앗).
@@ -76,7 +70,7 @@ const MESSAGES: Record<Grade, string[]> = {
     "{day} 오후, 일이 생각보다 잘 풀립니다.",
     "오늘 들은 칭찬은 진심이에요. {name}, 믿어도 됩니다.",
     "엘리베이터가 바로 옵니다. 그 정도의 운.",
-    "오늘은 메신저 답장이 빨리 오는 날.",
+    "운은 좋았는데 더 좋은 사람이 있었네요. 얻어 마시세요.",
   ],
   평: [
     "무난한 하루. 커피는 얻어 마시고 조용히 지나가세요.",
@@ -85,20 +79,6 @@ const MESSAGES: Record<Grade, string[]> = {
     "{day}의 운세: 점심 메뉴 고르는 데 10분 이상 걸림.",
     "오늘은 지켜보는 날. 내일을 위해 힘을 아끼세요.",
   ],
-  흉: [
-    "오늘은 아이스 아메리카노로 정신 차리는 날.",
-    "{name}, 커피는 꼭 얻어 마시세요. 지갑 열지 마세요.",
-    "작은 실수 주의. 메일 보내기 전에 한 번 더.",
-    "오늘 운은 바닥. 대신 내일은 올라갈 일만 남았어요.",
-    "{day}엔 단 걸 드세요. 운세가 그렇게 말합니다.",
-  ],
-};
-
-const MENUS: Record<Grade, string[]> = {
-  대길: ["제일 비싼 거 드세요. 오늘은 돼요.", "시즌 한정 메뉴 도전하는 날."],
-  길: ["라떼 계열. 부드럽게 가는 날.", "바닐라 한 펌프 추가해도 되는 날."],
-  평: ["늘 마시던 거. 모험은 다음에.", "아메리카노, 적당한 온도로."],
-  흉: ["아이스 아메리카노. 샷 추가.", "달달한 거 하나. 오늘은 당 보충이 먼저."],
 };
 
 const DAY_NAMES = ["일요일", "월요일", "화요일", "수요일", "목요일", "금요일", "토요일"];
@@ -107,7 +87,7 @@ function dayOfWeek(date: string): number {
   return new Date(`${date}T00:00:00+09:00`).getDay();
 }
 
-// 요일 이벤트 규칙(v1). 월요일 전원 -5, 금요일 전원 +8.
+// 요일 이벤트 규칙(v2). 월요일 전원 -5, 금요일 전원 +8.
 function dayEventOf(date: string): { label: string; delta: number } | null {
   const d = dayOfWeek(date);
   if (d === 1) return { label: "월요병 보정: 전원 -5", delta: -5 };
@@ -119,42 +99,39 @@ function pick<T>(arr: T[], seedStr: string): T {
   return arr[hash53(seedStr) % arr.length];
 }
 
-function fill(template: string, name: string, date: string): string {
-  return template.replaceAll("{name}", name).replaceAll("{day}", DAY_NAMES[dayOfWeek(date)]);
-}
-
-export function fortuneOf(p: Participant, date: string, version: number, delta: number): Fortune {
-  const key = `${version}|${date}|${p.name}`;
-  const base = hash53(key) % 101;
-  const score = Math.max(0, Math.min(100, base + delta));
-  const grade = gradeOf(score);
-  return {
-    name: p.name,
-    character: p.character,
-    score,
-    grade,
-    message: fill(pick(MESSAGES[grade], key + "|msg"), p.name, date),
-    menu: pick(MENUS[grade], key + "|menu"),
-  };
+export function displayName(f: Pick<Fortune, "slot" | "label">): string {
+  return f.label ?? `${f.slot}번`;
 }
 
 export function playGame(input: GameInput): GameResult {
+  const count = Math.max(0, Math.min(MAX_SLOTS, input.count));
   const event = input.events ? dayEventOf(input.date) : null;
   const delta = event?.delta ?? 0;
-  const fortunes = input.participants.map((p) => fortuneOf(p, input.date, input.version, delta));
+  const day = DAY_NAMES[dayOfWeek(input.date)];
 
-  const dir = input.rule === "high" ? -1 : 1;
-  const sorted = fortunes
-    .map((f, i) => i)
-    .sort((a, b) => (fortunes[a].score - fortunes[b].score) * dir || a - b);
-  // sorted[0] = 당첨 후보 1순위. 공개는 반대 순서(후보가 마지막).
-  const topScore = fortunes[sorted[0]].score;
-  const candidates = sorted.filter((i) => fortunes[i].score === topScore);
+  const base = Array.from({ length: count }, (_, i) => {
+    const slot = i + 1;
+    const key = `${input.version}|${input.seed}|${slot}`;
+    const score = Math.max(0, Math.min(100, (hash53(key) % 101) + delta));
+    const tie = hash53(key + "|tie") % 10;
+    return { slot, label: input.labels[slot] ?? null, score, tie, key };
+  });
 
-  let winner: number | null = null;
-  if (candidates.length === 1) winner = candidates[0];
-  else if (input.tieWinner !== undefined && candidates.includes(input.tieWinner)) winner = input.tieWinner;
+  const ranking = base
+    .map((b) => b.slot)
+    .sort((a, b) => {
+      const A = base[a - 1], B = base[b - 1];
+      return B.score - A.score || B.tie - A.tie || a - b;
+    });
+  const winner = count >= 2 ? ranking[0] : null;
+  const tied = count >= 2 && base[ranking[0] - 1].score === base[ranking[1] - 1].score;
 
-  const revealOrder = [...sorted].reverse();
-  return { fortunes, revealOrder, candidates, winner, dayEvent: event?.label ?? null };
+  const fortunes: Fortune[] = base.map((b) => {
+    const grade: Grade = b.slot === winner ? "대길" : b.score >= 50 ? "길" : "평";
+    const name = displayName(b);
+    const message = pick(MESSAGES[grade], b.key + "|msg").replaceAll("{name}", name).replaceAll("{day}", day);
+    return { slot: b.slot, label: b.label, score: b.score, tie: b.tie, grade, message };
+  });
+
+  return { fortunes, ranking, winner, tied, dayEvent: event?.label ?? null };
 }
