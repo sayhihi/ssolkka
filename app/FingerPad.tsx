@@ -12,13 +12,21 @@ type Phase = "idle" | "reveal";
 
 const HOLD_MS = 2000; // 손가락 수가 이만큼 안 변하면 카운트다운 시작
 const COUNT_FROM = 3;
-const TOUCH_LIMIT = 6; // 손가락 모드 최대 인원 (아이폰 사파리는 동시 터치 5개까지만 잡힐 수 있음)
-const SLOT_MS = 110; // 캐릭터 슬롯머신 속도
-const REVEAL_GAP_MS = 450; // 점수 낮은 순으로 하나씩
-
 // 날짜는 클라이언트에서만 읽는다(프리렌더 시 Date.now 금지)
 const noop = () => () => {};
 const useToday = () => useSyncExternalStore(noop, () => todayKST(), () => null);
+
+const MAX_FINGERS = 6; // 손가락 모드 최대 인원
+// 기기의 동시 터치 한계. 아이폰 사파리는 5개라 6번째 손가락이 닿으면 터치가 전부 취소된다.
+const useTouchLimit = () =>
+  useSyncExternalStore(
+    noop,
+    () => Math.min(MAX_FINGERS, navigator.maxTouchPoints || MAX_FINGERS),
+    () => MAX_FINGERS
+  );
+const SLOT_MS = 110; // 캐릭터 슬롯머신 속도
+const REVEAL_GAP_MS = 450; // 점수 낮은 순으로 하나씩
+
 
 // 시작 화면 = 손가락 올리기 패드. 카운트다운이 끝나면 그 자리에서 바로 당첨자까지 공개한다.
 export default function FingerPad() {
@@ -36,6 +44,7 @@ export default function FingerPad() {
   const posRef = useRef(new Map<number, { x: number; y: number }>());
   const today = useToday();
   const event = today ? dayEventOf(today) : null;
+  const limit = useTouchLimit();
 
   function clearTimers() {
     if (holdTimer.current) clearTimeout(holdTimer.current);
@@ -160,7 +169,11 @@ export default function FingerPad() {
         <div className="pointer-events-none flex flex-col gap-2">
           <span className="num self-start -rotate-3 rounded-md bg-ink px-2.5 py-1 text-xs tracking-[2px] text-gold">{done ? "WINNER" : "TODAY'S COFFEE"}</span>
           <h1 className="title whitespace-pre-line text-[42px]">{title}</h1>
-          {phase === "idle" && <p className="text-[13px] text-[#555]">2명 이상, 2초 유지하면 시작</p>}
+          {phase === "idle" && (
+            <p className="text-[13px] text-[#555]">
+              {n >= limit && limit < MAX_FINGERS ? "아이폰은 5명까지. 하나 더 올리면 취소돼요" : "2명 이상, 2초 유지하면 시작"}
+            </p>
+          )}
         </div>
         {phase === "idle" && (
           <div className="flex gap-2 pt-1" onPointerDown={stop} onPointerUp={stop}>
@@ -232,11 +245,11 @@ export default function FingerPad() {
           <div className="ink3 sh4 pointer-events-none flex h-14 items-center justify-between rounded-[14px] bg-paper px-4">
             <span className="text-[15px]">{n === 0 ? "손가락 올리면 색이 생겨요" : `${n}명 올라옴`}</span>
             <div className="flex items-center gap-1.5">
-              {Array.from({ length: TOUCH_LIMIT }, (_, i) => {
+              {Array.from({ length: limit }, (_, i) => {
                 const f = fingers[i];
                 return f ? <span key={i} className="ink2 h-3.5 w-3.5 rounded-full" style={{ background: colorOf(f.slot).hex }} /> : <span key={i} className="h-3.5 w-3.5 rounded-full border-2 border-dashed border-[#999] bg-paper" />;
               })}
-              <span className="ml-1 text-xs text-[#555]">{n >= TOUCH_LIMIT ? "7명+는 카드뽑기" : "최대 6"}</span>
+              <span className="ml-1 text-xs text-[#555]">{n >= limit ? `${limit + 1}명+는 카드뽑기` : `최대 ${limit}`}</span>
             </div>
           </div>
         ) : (
