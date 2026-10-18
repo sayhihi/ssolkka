@@ -21,7 +21,7 @@ function Sticker({ grade, small = false }: { grade: Grade; small?: boolean }) {
 function LeaderBadge({ f }: { f: Fortune }) {
   const c = colorOf(f.slot);
   return (
-    <div className="ink3 sh4 flex h-11 -rotate-2 items-center gap-2 rounded-xl bg-gold px-3.5 text-sm">
+    <div className="ink3 sh4 gold-metal flex h-11 -rotate-2 items-center gap-2 rounded-xl px-3.5 text-sm">
       <span className="num ink3 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs" style={{ background: c.hex, color: c.ink ? "#111" : "#fff" }}>{f.slot}</span>
       1등 {f.score}점
     </div>
@@ -109,7 +109,7 @@ export default function Reveal() {
             const isLatest = f.slot === latest;
             return (
               <li key={f.slot} className={`ink4 relative flex h-[92px] overflow-hidden rounded-2xl bg-paper ${isTop ? "sh5g" : "sh5"} ${isLatest ? "pop" : ""}`}>
-                {isTop && <span className="absolute -top-1 right-3.5 rounded-b-lg border-[3px] border-t-0 border-ink bg-gold px-2.5 py-0.5 text-[11px]">1등</span>}
+                {isTop && <span className="absolute -top-1 right-3.5 rounded-b-lg border-[3px] border-t-0 border-ink gold-metal px-2.5 py-0.5 text-[11px]">1등</span>}
                 <div className="flex w-[66px] flex-col items-center justify-center gap-0.5 border-r-4 border-ink" style={{ background: c.hex, color: c.ink ? "#111" : "#fff" }}>
                   <span className="num text-2xl leading-none">{f.slot}</span>
                   <Character slot={f.slot} w={38} h={46} className="rounded-[7px]" />
@@ -169,8 +169,8 @@ export default function Reveal() {
         <h1 className="title text-[36px]">오늘 베푸는 사람</h1>
       </div>
 
-      <div className="ink4 sh8 relative mr-1.5 mt-5 flex flex-col gap-2.5 rounded-[22px] bg-gold px-4 pb-3.5 pt-4">
-        <span className="ink3 sh3 absolute -top-[18px] right-3.5 rotate-6 rounded-[10px] bg-paper px-3.5 py-1 text-lg">대길</span>
+      <div className="ink4 sh8 gold-metal relative mr-1.5 mt-5 flex flex-col gap-2.5 rounded-[22px] px-4 pb-3.5 pt-4">
+        <span className="sticker sticker-top absolute -top-[18px] right-3.5 rounded-[10px] px-3.5 py-1 text-lg">대길</span>
         <div className="flex items-center gap-3.5">
           <Character slot={w.slot} w={110} h={140} className="ink4 sh4 rounded-[14px]" />
           <div className="flex flex-1 flex-col gap-0.5">

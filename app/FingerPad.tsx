@@ -251,9 +251,19 @@ export default function FingerPad() {
             className={`absolute ${phase === "idle" ? "breathe pointer-events-none" : done ? "cursor-pointer" : "pointer-events-none"}`}
             style={{ left: f.x, top: f.y, transform: phase === "idle" ? undefined : `translate(-50%, -50%) scale(${isWinner ? 1.25 : 1})`, transition: "transform 0.4s cubic-bezier(0.2,0.9,0.3,1.3)", zIndex: isWinner ? 2 : 1 }}
           >
+            {isWinner && (
+              <>
+                <span className="winner-ring" aria-hidden="true" />
+                {[0, 1, 2, 3, 4, 5].map((k) => {
+                  const a = (k / 6) * Math.PI * 2 - Math.PI / 2;
+                  const r = 84;
+                  return <span key={k} className="sparkle" aria-hidden="true" style={{ left: `calc(50% + ${Math.cos(a) * r}px - 8px)`, top: `calc(50% + ${Math.sin(a) * r}px - 8px)`, animationDelay: `${k * 0.23}s` }} />;
+                })}
+              </>
+            )}
             <div
-              className={`ink4 relative flex h-[120px] w-[120px] flex-col items-center justify-center rounded-full ${isWinner ? "sh6g" : "sh6"}`}
-              style={{ background: isWinner ? "#FFC400" : c.hex, color: c.ink || isWinner ? "#111" : "#fff", outline: isSelected && !isWinner ? "4px solid #FFC400" : undefined, outlineOffset: 4 }}
+              className={`ink4 relative flex h-[120px] w-[120px] flex-col items-center justify-center rounded-full ${isWinner ? "winner-pulse" : "sh6"}`}
+              style={{ background: c.hex, color: c.ink ? "#111" : "#fff", outline: isSelected && !isWinner ? "4px solid #e0a62b" : undefined, outlineOffset: 4 }}
             >
               {isRevealed && fortune ? (
                 <>
@@ -293,7 +303,7 @@ export default function FingerPad() {
             const isW = f.slot === winner;
             return (
               <div className="flex flex-col gap-2.5">
-                <div className={`ink4 flex items-center gap-3 rounded-[18px] px-3.5 py-3 ${isW ? "sh6g bg-gold" : "sh6 bg-paper"}`}>
+                <div className={`ink4 flex items-center gap-3 rounded-[18px] px-3.5 py-3 ${isW ? "sh6 gold-metal" : "sh6 bg-paper"}`}>
                   <Image src={characterSrc(f.slot)} alt={c.animal} width={44} height={54} className="ink3 rounded-lg bg-paper object-cover" style={{ width: 44, height: 54 }} />
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex items-center gap-2">
