@@ -3,7 +3,8 @@
 import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { characterSrc, colorOf, COLORS, PALETTE } from "@/lib/colors";
+import Confetti from "@/app/Confetti";
+import { characterSrc, colorOf, COLORS } from "@/lib/colors";
 import { FORTUNE_VERSION, dayEventOf, newSeed, playGame, todayKST, type GameResult } from "@/lib/fortune";
 import { encodeGame, type GameState } from "@/lib/game-url";
 
@@ -109,12 +110,7 @@ export default function FingerPad() {
     const id = setInterval(() => {
       i += 1;
       setRevealed(order.slice(0, i));
-      if (i >= order.length) {
-        clearInterval(id);
-        import("canvas-confetti").then(({ default: confetti }) => {
-          confetti({ particleCount: 140, spread: 75, origin: { y: 0.4 }, colors: [...PALETTE, "#FFC400"], scalar: 1.1 });
-        });
-      }
+      if (i >= order.length) clearInterval(id);
     }, REVEAL_GAP_MS);
     return () => clearInterval(id);
   }, [phase, game]);
@@ -207,6 +203,8 @@ export default function FingerPad() {
           </div>
         )}
       </div>
+
+      {done && <Confetti />}
 
       {/* 알림 토스트 */}
       {toast && (

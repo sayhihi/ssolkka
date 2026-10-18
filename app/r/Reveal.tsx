@@ -2,9 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { characterSrc, colorOf, PALETTE } from "@/lib/colors";
+import Confetti from "@/app/Confetti";
+import { characterSrc, colorOf } from "@/lib/colors";
 import { MAX_SLOTS, playGame, type Fortune, type Grade } from "@/lib/fortune";
 import { decodeGame, encodeGame, type GameState } from "@/lib/game-url";
 
@@ -63,25 +64,9 @@ export default function Reveal() {
   const state = useMemo(() => decodeGame(params), [params]);
   const result = useMemo(() => (state ? playGame(state) : null), [state]);
   const [copied, setCopied] = useState(false);
-  const confettiDone = useRef(false);
 
   // 손가락 모드 링크는 바로 결과. 뽑기 모드는 "끝"을 눌러야 결과.
   const showResult = !!state && !!result && result.winner !== null && (state.mode === "f" || state.finished);
-
-  // 결과 화면에 들어올 때 컨페티 한 번. 뽑기 모드는 "끝" 탭 순간에도 바로 터뜨린다(URL 갱신을 기다리지 않게).
-  function fireConfetti() {
-    if (confettiDone.current) return;
-    confettiDone.current = true;
-    import("canvas-confetti").then(({ default: confetti }) => {
-      confetti({ particleCount: 140, spread: 75, origin: { y: 0.35 }, colors: [...PALETTE, "#FFC400"], scalar: 1.1 });
-      setTimeout(() => confetti({ particleCount: 60, angle: 60, spread: 55, origin: { x: 0, y: 0.6 }, colors: [...PALETTE, "#FFC400"] }), 250);
-      setTimeout(() => confetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 1, y: 0.6 }, colors: [...PALETTE, "#FFC400"] }), 400);
-    });
-  }
-  useEffect(() => {
-    if (showResult) fireConfetti();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showResult]);
 
   if (!state || !result) {
     return (
@@ -147,10 +132,7 @@ export default function Reveal() {
             {fortunes.length >= 2 && (
               <button
                 type="button"
-                onClick={() => {
-                  fireConfetti();
-                  update({ finished: true });
-                }}
+                onClick={() => update({ finished: true })}
                 className="btn-small press h-11 px-5"
               >
                 끝, 누가 쏘나
@@ -177,6 +159,7 @@ export default function Reveal() {
   const others = ranking.slice(1).map((s) => fortunes[s - 1]);
   return (
     <section className="relative flex flex-1 flex-col">
+      <Confetti />
       <span className="ink2 pointer-events-none absolute left-4 top-20 h-[18px] w-2.5 rotate-[25deg] bg-[#E53935]" />
       <span className="ink2 pointer-events-none absolute right-5 top-16 h-[18px] w-2.5 -rotate-[30deg] bg-[#1E63E9]" />
       <span className="ink2 pointer-events-none absolute right-2 top-[280px] h-3 w-3 rounded-full bg-[#2BB24C]" />
