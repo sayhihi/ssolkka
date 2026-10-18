@@ -1,5 +1,7 @@
 # 디자인 프롬프트 (claude.ai/design 용)
 
+결과 캔버스: https://claude.ai/artifact/PyNHTPsWzL4URdVjcnmJUb. 확정된 시스템 요약은 [design.md](design.md).
+
 와이어프레임과 비주얼을 따로 나누지 않고, 산출물 순서만 단계로 나눈다.
 흐름이 흔들리는 화면은 손가락 올리기와 뽑기 둘뿐이라 그 둘만 로파이로 먼저 본다.
 
