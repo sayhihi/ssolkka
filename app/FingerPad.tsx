@@ -16,14 +16,8 @@ const COUNT_FROM = 3;
 const noop = () => () => {};
 const useToday = () => useSyncExternalStore(noop, () => todayKST(), () => null);
 
-const MAX_FINGERS = 6; // 손가락 모드 최대 인원
-// 기기의 동시 터치 한계. 아이폰 사파리는 5개라 6번째 손가락이 닿으면 터치가 전부 취소된다.
-const useTouchLimit = () =>
-  useSyncExternalStore(
-    noop,
-    () => Math.min(MAX_FINGERS, navigator.maxTouchPoints || MAX_FINGERS),
-    () => MAX_FINGERS
-  );
+const MAX_FINGERS = 5; // 손가락 모드 최대 인원 = 아이폰 사파리 동시 터치 한계
+const TOAST_MS = 2600;
 const SLOT_MS = 110; // 캐릭터 슬롯머신 속도
 const REVEAL_GAP_MS = 450; // 점수 낮은 순으로 하나씩
 
@@ -44,7 +38,14 @@ export default function FingerPad() {
   const posRef = useRef(new Map<number, { x: number; y: number }>());
   const today = useToday();
   const event = today ? dayEventOf(today) : null;
-  const limit = useTouchLimit();
+  const limit = MAX_FINGERS;
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function showToast(msg: string) {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), TOAST_MS);
+  }
 
   function clearTimers() {
     if (holdTimer.current) clearTimeout(holdTimer.current);
@@ -121,10 +122,13 @@ export default function FingerPad() {
   function down(e: React.PointerEvent) {
     if (phase !== "idle") return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
+    if (fingers.length >= MAX_FINGERS) {
+      showToast(`손가락은 ${MAX_FINGERS}개까지. 더 많으면 카드뽑기로!`);
+      return;
+    }
     const used = new Set(fingers.map((f) => f.slot));
     let slot = 1;
     while (used.has(slot)) slot++;
-    if (slot > 10) return;
     posRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     setFingers([...fingers, { id: e.pointerId, x: e.clientX, y: e.clientY, slot }]);
   }
@@ -137,6 +141,12 @@ export default function FingerPad() {
     if (phase !== "idle") return;
     posRef.current.delete(e.pointerId);
     setFingers((fs) => fs.filter((f) => f.id !== e.pointerId));
+  }
+  function cancel(e: React.PointerEvent) {
+    if (phase !== "idle") return;
+    // 아이폰은 6번째 손가락이 닿으면 터치를 전부 취소한다. 그 순간을 잡아 안내.
+    if (fingers.length >= MAX_FINGERS) showToast(`손가락이 ${MAX_FINGERS + 1}개 이상 닿아서 취소됐어요. ${MAX_FINGERS}명까지만!`);
+    up(e);
   }
   function reset() {
     setPhase("idle");
@@ -162,7 +172,7 @@ export default function FingerPad() {
       onPointerDown={down}
       onPointerMove={move}
       onPointerUp={up}
-      onPointerCancel={up}
+      onPointerCancel={cancel}
     >
       {/* 헤더 */}
       <div className="absolute inset-x-0 top-0 mx-auto flex max-w-[430px] items-start justify-between px-5 pt-12">
@@ -171,7 +181,7 @@ export default function FingerPad() {
           <h1 className="title whitespace-pre-line text-[42px]">{title}</h1>
           {phase === "idle" && (
             <p className="text-[13px] text-[#555]">
-              {n >= limit && limit < MAX_FINGERS ? "아이폰은 5명까지. 하나 더 올리면 취소돼요" : "2명 이상, 2초 유지하면 시작"}
+              {n >= limit ? `${limit}명 꽉 참. 더 올리면 취소돼요` : "2명 이상, 2초 유지하면 시작"}
             </p>
           )}
         </div>
@@ -197,6 +207,13 @@ export default function FingerPad() {
           </div>
         )}
       </div>
+
+      {/* 알림 토스트 */}
+      {toast && (
+        <div className="pop pointer-events-none absolute inset-x-5 top-[200px] z-10 mx-auto max-w-[390px]">
+          <div className="ink3 sh4 rounded-xl bg-ink px-4 py-3 text-center text-sm text-gold">{toast}</div>
+        </div>
+      )}
 
       {/* 카운트다운 링 */}
       {count !== null && (
