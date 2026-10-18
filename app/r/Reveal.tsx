@@ -68,12 +68,19 @@ export default function Reveal() {
   // 손가락 모드 링크는 바로 결과. 뽑기 모드는 "끝"을 눌러야 결과.
   const showResult = !!state && !!result && result.winner !== null && (state.mode === "f" || state.finished);
 
-  useEffect(() => {
-    if (!showResult || confettiDone.current) return;
+  // 결과 화면에 들어올 때 컨페티 한 번. 뽑기 모드는 "끝" 탭 순간에도 바로 터뜨린다(URL 갱신을 기다리지 않게).
+  function fireConfetti() {
+    if (confettiDone.current) return;
     confettiDone.current = true;
     import("canvas-confetti").then(({ default: confetti }) => {
       confetti({ particleCount: 140, spread: 75, origin: { y: 0.35 }, colors: [...PALETTE, "#FFC400"], scalar: 1.1 });
+      setTimeout(() => confetti({ particleCount: 60, angle: 60, spread: 55, origin: { x: 0, y: 0.6 }, colors: [...PALETTE, "#FFC400"] }), 250);
+      setTimeout(() => confetti({ particleCount: 60, angle: 120, spread: 55, origin: { x: 1, y: 0.6 }, colors: [...PALETTE, "#FFC400"] }), 400);
     });
+  }
+  useEffect(() => {
+    if (showResult) fireConfetti();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showResult]);
 
   if (!state || !result) {
@@ -138,7 +145,16 @@ export default function Reveal() {
           <div className="flex items-center justify-between pr-1.5">
             <span className="text-xs text-[#555]">남은 카드 {remaining.length}장</span>
             {fortunes.length >= 2 && (
-              <button type="button" onClick={() => update({ finished: true })} className="btn-small press h-11 px-5">끝, 누가 쏘나</button>
+              <button
+                type="button"
+                onClick={() => {
+                  fireConfetti();
+                  update({ finished: true });
+                }}
+                className="btn-small press h-11 px-5"
+              >
+                끝, 누가 쏘나
+              </button>
             )}
           </div>
           {remaining.length > 0 ? <Fan remaining={remaining} onPick={(pos) => update({ picks: [...state.picks, pos] })} /> : <p className="py-10 text-center text-sm text-[#555]">다 뽑았어요</p>}
