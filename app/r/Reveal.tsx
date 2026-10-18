@@ -9,7 +9,7 @@ import { MAX_SLOTS, playGame, type Fortune, type Grade } from "@/lib/fortune";
 import { decodeGame, encodeGame, type GameState } from "@/lib/game-url";
 
 const STICKER: Record<Grade, string> = { 대길: "sticker-top", 길: "sticker-mid", 평: "sticker-low" };
-// 공개 중에는 당첨자가 정해지기 전이라 점수 구간으로만 보여준다(대길은 결과에서만)
+// 뽑는 중에는 당첨자가 정해지기 전이라 점수 구간으로만 보여준다(대길은 결과에서만)
 const liveGrade = (f: Fortune): Grade => (f.score >= 50 ? "길" : "평");
 const byScore = (a: Fortune, b: Fortune) => b.score - a.score || b.tie - a.tie || a.slot - b.slot;
 
@@ -21,9 +21,7 @@ function LeaderBadge({ f }: { f: Fortune }) {
   const c = colorOf(f.slot);
   return (
     <div className="ink3 sh4 flex h-11 -rotate-2 items-center gap-2 rounded-xl bg-gold px-3.5 text-sm">
-      <span className="num ink3 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs" style={{ background: c.hex, color: c.ink ? "#111" : "#fff" }}>
-        {f.slot}
-      </span>
+      <span className="num ink3 inline-flex h-6 w-6 items-center justify-center rounded-full text-xs" style={{ background: c.hex, color: c.ink ? "#111" : "#fff" }}>{f.slot}</span>
       1등 {f.score}점
     </div>
   );
@@ -33,19 +31,43 @@ function Character({ slot, w, h, className = "" }: { slot: number; w: number; h:
   return <Image src={characterSrc(slot)} alt={colorOf(slot).animal} width={w} height={h} className={`ink3 rounded-lg bg-paper object-cover ${className}`} style={{ width: w, height: h }} />;
 }
 
+// 부채꼴: 남은 카드를 호 위에 고르게. 자리(pos)는 카드의 정체라 key로 유지한다.
+function Fan({ remaining, onPick }: { remaining: number[]; onPick: (pos: number) => void }) {
+  const k = remaining.length;
+  const spread = Math.min(84, 11 * (k - 1)); // 전체 각도
+  return (
+    <div className="relative h-[190px]">
+      {remaining.map((pos, i) => {
+        const angle = k === 1 ? 0 : -spread / 2 + (spread * i) / (k - 1);
+        return (
+          <button
+            key={pos}
+            type="button"
+            onClick={() => onPick(pos)}
+            aria-label={`${i + 1}번째 카드 뽑기`}
+            className="ink4 sh4 stripes absolute left-1/2 top-2 h-[110px] w-[74px] -ml-[37px] rounded-[12px] bg-ink"
+            style={{ transform: `rotate(${angle}deg)`, transformOrigin: "50% 320px", transition: "transform 0.35s cubic-bezier(0.2,0.8,0.2,1.1)", backgroundImage: "repeating-linear-gradient(-45deg, rgba(255,255,255,0.12) 0 10px, transparent 10px 20px)" }}
+          >
+            <span className="num ink2 mx-auto flex h-9 w-9 items-center justify-center rounded-full bg-gold text-lg text-ink">?</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Reveal() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const state = useMemo(() => decodeGame(params), [params]);
   const result = useMemo(() => (state ? playGame(state) : null), [state]);
-  const [flipped, setFlipped] = useState<Set<number>>(new Set());
   const [copied, setCopied] = useState(false);
   const confettiDone = useRef(false);
 
-  const showResult = !!state && !!result && result.winner !== null && (state.mode === "d" ? state.finished : flipped.size >= result.fortunes.length);
+  // 손가락 모드 링크는 바로 결과. 뽑기 모드는 "끝"을 눌러야 결과.
+  const showResult = !!state && !!result && result.winner !== null && (state.mode === "f" || state.finished);
 
-  // 결과 화면 진입 시 컨페티 한 번
   useEffect(() => {
     if (!showResult || confettiDone.current) return;
     confettiDone.current = true;
@@ -73,81 +95,20 @@ export default function Reveal() {
     } catch {}
   }
 
-  // 1) 손가락 모드: 카드 뒤집기
-  if (state.mode === "f" && !showResult) {
-    const open = fortunes.filter((f) => flipped.has(f.slot)).sort(byScore);
-    const top = open[0] ?? null;
-    const lastOne = fortunes.length - flipped.size === 1;
-    return (
-      <section className="flex flex-1 flex-col">
-        <div className="flex items-end justify-between">
-          <h1 className="title whitespace-pre-line text-[38px]">{lastOne ? "마지막\n한 장" : "자기 번호\n뒤집어"}</h1>
-          {top && <LeaderBadge f={top} />}
-        </div>
-        {dayEvent && <p className="mt-2 text-xs text-[#555]">{dayEvent}</p>}
-        <ul className="mt-6 flex flex-col gap-4 pr-1.5">
-          {fortunes.map((f) => {
-            const c = colorOf(f.slot);
-            const isOpen = flipped.has(f.slot);
-            const isTop = isOpen && top?.slot === f.slot;
-            const isLast = !isOpen && lastOne;
-            return (
-              <li key={f.slot} className="flip h-[116px]">
-                <div className={`flip-inner h-full ${isOpen ? "is-open" : ""}`}>
-                  {/* 뒷면 */}
-                  <button
-                    type="button"
-                    disabled={isOpen}
-                    onClick={() => setFlipped(new Set(flipped).add(f.slot))}
-                    className={`flip-face ink4 sh6 stripes flex items-center justify-between rounded-[18px] px-[18px] ${isLast ? "wiggle" : ""}`}
-                    style={{ background: c.hex, color: c.ink ? "#111" : "#fff" }}
-                    aria-label={`${f.slot}번 카드 뒤집기`}
-                  >
-                    {isLast && <span className="absolute -top-4 left-4 rounded-lg border-[3px] border-ink bg-ink px-2.5 py-0.5 text-xs tracking-wide text-gold">마지막 한 장!</span>}
-                    <span className="flex items-baseline gap-3">
-                      <span className="num text-[76px] leading-none" style={{ textShadow: "4px 4px 0 #111" }}>{f.slot}</span>
-                      <span className="text-[15px]">{c.name}</span>
-                    </span>
-                    <span className={`ink3 sh3 rounded-[10px] px-3.5 py-2 text-base text-ink ${isLast ? "bg-gold" : "bg-paper"}`}>탭!</span>
-                  </button>
-                  {/* 앞면 */}
-                  <div className={`flip-face flip-back ink4 flex overflow-hidden rounded-[18px] bg-paper ${isTop ? "sh6g" : "sh6"}`}>
-                    {isTop && <span className="absolute -top-1 right-3.5 rounded-b-lg border-[3px] border-t-0 border-ink bg-gold px-2.5 py-0.5 text-xs">1등</span>}
-                    <div className="flex w-20 flex-col items-center justify-center gap-1 border-r-4 border-ink" style={{ background: c.hex, color: c.ink ? "#111" : "#fff" }}>
-                      <span className="num text-[30px] leading-none">{f.slot}</span>
-                      <Character slot={f.slot} w={46} h={58} />
-                    </div>
-                    <div className="flex flex-1 items-center justify-between gap-2 pl-3 pr-3.5">
-                      <div className="flex flex-col gap-1.5">
-                        <div><Sticker grade={liveGrade(f)} /></div>
-                        <p className="text-xs leading-snug text-[#555]">{f.message}</p>
-                      </div>
-                      <span className="num text-[50px] leading-none">{f.score}</span>
-                    </div>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-    );
-  }
-
-  // 2) 뽑기 모드: 더미에서 한 장씩
+  // 1) 뽑기 모드: 부채꼴에서 직접 고르기
   if (state.mode === "d" && !state.finished) {
     const sorted = fortunes.slice().sort(byScore);
     const top = sorted[0] ?? null;
     const latest = fortunes.length ? fortunes[fortunes.length - 1].slot : null;
-    const left = MAX_SLOTS - fortunes.length;
+    const remaining = Array.from({ length: MAX_SLOTS }, (_, i) => i + 1).filter((p) => !state.picks.includes(p));
     return (
       <section className="flex flex-1 flex-col">
         <div className="flex items-end justify-between">
-          <h1 className="title whitespace-pre-line text-[38px]">{"한 명씩\n뽑기"}</h1>
+          <h1 className="title whitespace-pre-line text-[38px]">{"카드 한 장\n골라"}</h1>
           {top && <LeaderBadge f={top} />}
         </div>
         <div className="mt-2.5 flex items-center justify-between text-xs text-[#555]">
-          <span>{fortunes.length ? `${fortunes.length}장 뽑음, 점수순` : "첫 번째 사람이 더미를 탭"}</span>
+          <span>{fortunes.length ? `${fortunes.length}장 뽑음, 점수순` : "첫 번째 사람부터 아무 카드나"}</span>
           {dayEvent && <span>{dayEvent}</span>}
         </div>
         <ul className="mt-2 flex flex-col gap-3 pr-1.5">
@@ -173,39 +134,20 @@ export default function Reveal() {
             );
           })}
         </ul>
-        <div className="mt-auto flex items-stretch gap-3 pr-1.5 pt-6">
-          <div className="relative flex-1">
-            <div className="ink4 absolute inset-x-0 bottom-[-6px] h-32 -rotate-2 rounded-[18px] bg-[#ddd]" />
-            <div className="ink4 absolute inset-x-0 bottom-[-2px] h-32 rotate-[1.5deg] rounded-[18px] bg-[#eee]" />
-            <button
-              type="button"
-              disabled={left <= 0}
-              onClick={() => update({ count: state.count + 1 })}
-              className="ink4 sh6g stripes-light relative flex h-32 w-full items-center justify-center gap-3.5 rounded-[18px] bg-ink disabled:opacity-40"
-              aria-label="더미에서 카드 뽑기"
-            >
-              <span className="num ink3 flex h-16 w-16 items-center justify-center rounded-full bg-gold text-[34px] text-ink">?</span>
-              <span className="text-left leading-[1.15] text-gold">
-                <span className="block text-xl">{left > 0 ? "탭해서 뽑기" : "다 뽑았어요"}</span>
-                <span className="block text-xs text-paper">남은 카드 {left}장</span>
-              </span>
-            </button>
+        <div className="mt-auto pt-4">
+          <div className="flex items-center justify-between pr-1.5">
+            <span className="text-xs text-[#555]">남은 카드 {remaining.length}장</span>
+            {fortunes.length >= 2 && (
+              <button type="button" onClick={() => update({ finished: true })} className="btn-small press h-11 px-5">끝, 누가 쏘나</button>
+            )}
           </div>
-          <button
-            type="button"
-            disabled={fortunes.length < 2}
-            onClick={() => update({ finished: true })}
-            className="ink4 h-32 w-[104px] rounded-[18px] bg-paper text-2xl disabled:opacity-40"
-            style={{ boxShadow: "0 6px 0 #111" }}
-          >
-            끝
-          </button>
+          {remaining.length > 0 ? <Fan remaining={remaining} onPick={(pos) => update({ picks: [...state.picks, pos] })} /> : <p className="py-10 text-center text-sm text-[#555]">다 뽑았어요</p>}
         </div>
       </section>
     );
   }
 
-  // 3) 결과
+  // 2) 결과
   if (winner === null) {
     return (
       <section className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
@@ -219,7 +161,6 @@ export default function Reveal() {
   const others = ranking.slice(1).map((s) => fortunes[s - 1]);
   return (
     <section className="relative flex flex-1 flex-col">
-      {/* 장식 */}
       <span className="ink2 pointer-events-none absolute left-4 top-20 h-[18px] w-2.5 rotate-[25deg] bg-[#E53935]" />
       <span className="ink2 pointer-events-none absolute right-5 top-16 h-[18px] w-2.5 -rotate-[30deg] bg-[#1E63E9]" />
       <span className="ink2 pointer-events-none absolute right-2 top-[280px] h-3 w-3 rounded-full bg-[#2BB24C]" />

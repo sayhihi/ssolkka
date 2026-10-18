@@ -10,7 +10,8 @@ export const MAX_SLOTS = 10;
 export type Grade = "대길" | "길" | "평"; // 대길은 그 판의 당첨자 한 명에게만 붙는 라벨
 
 export type Fortune = {
-  slot: number; // 1부터
+  slot: number; // 표시 번호(1부터). 손가락 모드는 손가락 순서, 뽑기 모드는 뽑은 순서
+  pos: number; // 점수를 정하는 자리. 손가락 모드는 slot과 같고, 뽑기 모드는 부채꼴에서 집은 자리(비공개)
   label: string | null; // 선택 이름
   score: number; // 0~100 정수(표시용)
   tie: number; // 0~9 숨은 소수점. 동점일 때만 공개
@@ -21,7 +22,7 @@ export type Fortune = {
 export type GameInput = {
   version: number;
   seed: string;
-  count: number; // 카드 수(뽑기 모드는 뽑은 장수)
+  picks: number[]; // 자리 목록. 손가락 모드는 [1..n], 뽑기 모드는 집은 자리를 뽑은 순서대로
   date: string; // YYYY-MM-DD (KST). 요일 이벤트와 표시용
   events: boolean;
   labels: Record<number, string>; // slot -> 이름(선택)
@@ -81,17 +82,18 @@ export function displayName(f: Pick<Fortune, "slot" | "label">): string {
 }
 
 export function playGame(input: GameInput): GameResult {
-  const count = Math.max(0, Math.min(MAX_SLOTS, input.count));
+  const picks = input.picks.slice(0, MAX_SLOTS);
+  const count = picks.length;
   const event = input.events ? dayEventOf(input.date) : null;
   const delta = event?.delta ?? 0;
   const day = DAY_NAMES[dayOfWeek(input.date)];
 
-  const base = Array.from({ length: count }, (_, i) => {
+  const base = picks.map((pos, i) => {
     const slot = i + 1;
-    const key = `${input.version}|${input.seed}|${slot}`;
+    const key = `${input.version}|${input.seed}|${pos}`;
     const score = Math.max(0, Math.min(100, (hash53(key) % 101) + delta));
     const tie = hash53(key + "|tie") % 10;
-    return { slot, label: input.labels[slot] ?? null, score, tie, key };
+    return { slot, pos, label: input.labels[slot] ?? null, score, tie, key };
   });
 
   const ranking = base
@@ -110,7 +112,7 @@ export function playGame(input: GameInput): GameResult {
     const message = `${pick(pool.front, b.key + "|front")} ${pick(pool.back, b.key + "|back")}`
       .replaceAll("{name}", name)
       .replaceAll("{day}", day);
-    return { slot: b.slot, label: b.label, score: b.score, tie: b.tie, grade, message };
+    return { slot: b.slot, pos: b.pos, label: b.label, score: b.score, tie: b.tie, grade, message };
   });
 
   return { fortunes, ranking, winner, tied, dayEvent: event?.label ?? null };
